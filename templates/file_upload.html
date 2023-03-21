@@ -1,0 +1,451 @@
+{% load static %}
+<html lang="de">
+   <script src="https://unpkg.com/dropzone@6.0.0-beta.1/dist/dropzone-min.js"></script>
+   <link href="https://unpkg.com/dropzone@6.0.0-beta.1/dist/dropzone.css" rel="stylesheet" type="text/css" />
+   <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+      <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+      <script src="https://rawgit.com/enyo/dropzone/master/dist/dropzone.js"></script>
+      <link rel="stylesheet" href="https://rawgit.com/enyo/dropzone/master/dist/dropzone.css">
+       <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+       <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+       <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+       <script src="https://cdn.jsdelivr.net/npm/jquery-sortablejs@latest/jquery-sortable.js"></script>
+       <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+       <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+      <title>Aufenthaltsraum</title>
+   </head>
+
+   <div id="bg"></div>
+
+<body>
+
+    <img src="{% static 'logo.png' %}" id="logo" alt="Düpmann Logo">
+
+    <div id="main_container">
+         <div id="setting_div" >
+
+
+
+      <div id="power">
+          <div style="padding-right: 50px;">
+                <label for="time_in">Umschaltzeit: </label>
+              <input style="padding-right:80px; width: 35%; text-align:left;" type="number" id="time_in" onchange="update_time(this);" ></input><span style="margin-left:-80px;color: gray">Sekunden</span>
+          </div>
+
+<!--         <span class="off">OFF</span>-->
+<!--         <label class="switch">-->
+<!--         <input type="checkbox">-->
+<!--         <span class="slider round"></span></label>-->
+<!--         <span class="on">ON</span>-->
+      </div>
+
+     <form action="up" method="POST">
+         {% csrf_token %}
+
+        <a>Modus: </a>
+
+    <select name="tv_state_c" id="tv_state">
+      <option value="1">Infos & Radio</option>
+      <option value="2">Radio</option>
+      <option value="3">Infos</option>
+    </select>
+
+         <a>Von </a>
+            <input type="time"  name="start_time"  value="{{ settings.start }}" required>
+        <a>bis</a>
+            <input type="time" name="stop_time" value="{{ settings.stop }}" required>
+
+     <input class="btn-danger btn-lg" id="save_btn" value="Speichern" onclick="update_order()" type="submit" >
+    </form>
+     </div>
+
+
+      <div class="container mt-3">
+         <br>
+         <form enctype='multipart/form-data' action="up" method='POST' class="dropzone dz" id="my-dropzone" >
+            {% csrf_token %}
+            <div class="fallback">
+               <input name="file" type="file" multiple />
+            </div>
+         </form>
+      </div>
+
+ </div>
+
+   </body>
+
+   <script >
+
+
+
+function update_select(){
+    let select = document.getElementById('tv_state');
+    select.value = {{ settings.state }}
+}
+
+function get_time(){
+
+    $.ajax({
+        type: 'GET',
+        url: 'ct/0',
+        data: {
+            csrfmiddlewaretoken: '{{ csrf_token }}',
+
+        },
+    }).done(function(data) {
+         document.getElementById('time_in').value = data/1000})}
+
+       function update_time(input){
+           var value = input.value;
+            var milliseconds = value * 1000;
+
+
+              $.ajax({
+                  type: 'POST',
+                  url: 'ct/' + milliseconds,
+                  data: {
+                      csrfmiddlewaretoken: '{{ csrf_token }}'
+                  }
+              });
+       }
+
+      function sortByKey(array, key) {
+              return array.sort(function(a, b) {
+                  var x = a[key];
+                  var y = b[key];
+                  return ((x < y) ? -1 : ((x > y) ? 1 : 0));
+              });
+          }
+      const dataa = {{img_dat | safe}}
+
+
+
+      Dropzone.autoDiscover = false;
+      const myDropzone = new Dropzone('#my-dropzone', {
+          url: '/up',
+          addRemoveLinks: true,
+          sortable: true,
+          timeout: 180000,
+          acceptedFiles: "image/*,application/pdf",
+
+          removedfile: function(file) {
+              let name = decodeURI(file.name.replace(/ /g,"_"));
+              console.log(file.name)
+
+
+              $.ajax({
+                  type: 'POST',
+                  url: 'rm/' + name,
+                  data: {
+                      csrfmiddlewaretoken: '{{ csrf_token }}'
+                  },
+                  sucess: function(data) {
+                      console.log('success: ' + data);
+                  }
+              });
+
+              var _ref;
+              return (_ref = file.previewElement) != null ? _ref.parentNode.removeChild(file.previewElement) : void 0;
+          },
+          init: function() {
+              get_set_Tv()
+                get_time()
+              console.log(dataa)
+              sortByKey(dataa, 'order')
+              for (let i = 0; i < dataa.length; i++) {
+                  namee = dataa[i]['data'].substring( dataa[i]['data'].lastIndexOf("/")+1)
+
+                  var mockFile = {
+                      name: namee,
+                      type: 'image/jpeg'
+                  };
+                  this.options.addedfile.call(this, mockFile);
+                  mockFile.previewElement.classList.add('dz-success');
+                  mockFile.previewElement.classList.add('dz-complete');
+
+
+
+
+                  if (dataa[i]['name'].endsWith(".pdf")) {
+                      var str = dataa[i]['data'].slice(0, -4) + ".0.jpg"
+
+                      this.options.thumbnail.call(this, mockFile, window.location.protocol+
+                  "/static/"+ str.substring(5));
+                  }
+                  else
+                      {
+                          this.options.thumbnail.call(this, mockFile,window.location.protocol+
+                  "/static/" + dataa[i]['data'].substring(5));
+
+                      }
+
+                  }
+                    $(".dz-remove").text("Löschen");
+                 $(".dz-size").hide();
+
+              }
+
+      })
+      myDropzone.on("queuecomplete", function() {
+          update_order()
+      });
+
+      myDropzone.on("addedfile", function(file) {
+
+          $(".dz-remove").text("Löschen");
+          $(".dz-size").hide();
+
+          let name = decodeURI(file.name.replace(/ /g,"_"));
+
+              setTimeout(()=> {
+              if (file.name.endsWith(".pdf")) {
+                  myDropzone.emit("thumbnail", file,  window.location.protocol+
+                  "/static/" +  name.slice(0, file.name.length - 4) + ".0.jpg");
+
+              } else {
+                  myDropzone.emit("thumbnail", file,  window.location.protocol+
+                  "/static/" +  name)
+              }
+              }
+          ,1000);
+
+
+      })
+
+
+
+      function update_order() {
+        console.log('UPDATED ORDER')
+        let previewDivs = document.querySelectorAll("span[data-dz-name]")
+            console.log('\n\n')
+          for (var i = 0; i < previewDivs.length  ; i++) {
+
+
+              var alt_text = decodeURI(previewDivs[i].innerText.replace(/ /g, "_"));
+
+              {#console.log(alt_text, i);#}
+
+              $.ajax({
+                  type: 'POST',
+                  url: 'upd/' + alt_text + '/' + i,
+                  data: {
+                      csrfmiddlewaretoken: '{{ csrf_token }}'
+                  },
+              });
+          }
+
+
+
+          // $.ajax({
+          //    type: 'POST',
+          //    url: 'ck',
+          //    data: {
+          //        csrfmiddlewaretoken: '{{ csrf_token }}',
+          //
+          //    },
+          //    });
+      }
+
+
+      $("#my-dropzone").sortable({
+          items: '.dz-preview',
+          cursor: 'move',
+          opacity: 0.5,
+          containment: '#uploadzone',
+          distance: 20,
+          tolerance: 'pointer',
+          stop: function() {
+              var queue = uploadzone.files;
+              console.log(queue)
+              $('#my-dropzone .dz-preview .dz-filename [data-dz-name]').each(function(count, el) {
+                  var name = el.getAttribute('data-name');
+                  queue.forEach(function(file) {
+                      if (file.name === name) {
+                          newQueue.push(file);
+                      }
+                  });
+              });
+
+              uploadzone.files = newQueue;
+
+          }
+      });
+
+
+
+      update_select();
+
+      set_power_button();
+       function set_power_button(){
+                   fetch(`/tv/0`)
+          .then(function(data) {
+
+              data.text().then( text => { console.log('test' + text)})
+
+                 })}
+
+
+
+
+      function get_set_Tv() {
+
+        fetch(`/tv/0`)
+          .then(function(data) {
+
+              data.text().then( text => {
+
+                      var checkbox = document.querySelector("input[type='checkbox']");
+
+                      checkbox.checked = text === '1';
+                    // document.getElementById('setting_div').hidden = checkbox.checked === false;
+
+                      checkbox.onchange  = function () {
+
+                            // document.getElementById('setting_div').hidden = checkbox.checked === false;
+                                    fetch(`/tv/1`)
+                          .then(function(data) {
+
+                              }
+                              )}
+                  }
+              );
+          });
+
+      }
+
+
+   </script>
+   <style>
+
+   #main_container{
+   }
+
+#setting_div{
+    display: flex;
+    flex-direction: column;
+    position:relative;
+    left: 2%;
+    background-color: #FFFFFF;
+    width: fit-content;
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
+    padding: 10px 10px 0px 10px;
+    margin-bottom: -5px;
+}
+
+#bg {
+    background-image: url('{% static 'Blick_Firma.jpg' %}');
+    z-index: -10;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  filter: blur(3px);
+}
+       #logo{
+           width: 15%;
+           margin-top: -1.5%;
+         margin-left: 0.5%;
+           filter: engrave();
+       }
+
+      .dz-image img{
+
+      width: 130px;
+      height:130px;
+      }
+      #save_btn{
+       position: relative;
+          top: -5px;
+          right: -5px;
+      }
+      #power{
+
+          display: flex;
+          flex-direction: row;
+
+      /*text-align: center;*/
+      }
+      .on {
+        padding-top: 3px;
+      font-size: 18px;
+      padding-left: 2px;
+      }
+      .off{
+        padding-right: 2px;
+        padding-top: 3px;
+      font-size: 18px;
+      }
+      .switch {
+
+      width: 60px;
+      height: 34px;
+      }
+      .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      }
+      .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      -webkit-transition: .4s;
+      transition: .4s;
+      }
+      .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      -webkit-transition: .4s;
+      transition: .4s;
+      }
+      input:checked + .slider {
+      background-color: #3dc542;
+      }
+      input:focus + .slider {
+      box-shadow: 0 0 1px #349ef3;
+      }
+      input:checked + .slider:before {
+      -webkit-transform: translateX(26px);
+      -ms-transform: translateX(26px);
+      transform: translateX(26px);
+      }
+      /* Rounded sliders */
+      .slider.round {
+      border-radius: 34px;
+      }
+      .slider.round:before {
+      border-radius: 50%;
+      }
+      /* Add a label for the toggle switch */
+      .switch {
+      display: inline-block;
+      position: relative;
+      font-size: 16px;
+      font-weight: bold;
+      color: #444;
+      }
+      /* Add some extra styles for the toggle switch */
+      .switch input:checked + .slider:before {
+      background-color: white;
+      }
+      /* Add a hover effect for the toggle switch */
+      .switch:hover input + .slider {
+      box-shadow: 0 0 2px #333;
+      }
+   </style>
+</html>
